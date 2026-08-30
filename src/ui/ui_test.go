@@ -17,9 +17,13 @@ func TestInitialModel(t *testing.T) {
 func TestUpdateMetadata(t *testing.T) {
 	m := InitialModel()
 	meta := metadata.Metadata{Title: "Test", Artist: "Artist", Album: "Album", Playing: true}
-	m.Update(MetadataMsg{Metadata: meta})
-	if m.metadata.Title != "Test" {
-		t.Errorf("expected title Test, got %s", m.metadata.Title)
+	newModel, _ := m.Update(MetadataMsg{Metadata: meta})
+	updated, ok := newModel.(model)
+	if !ok {
+		t.Fatalf("expected model type, got %T", newModel)
+	}
+	if updated.metadata.Title != "Test" {
+		t.Errorf("expected title Test, got %s", updated.metadata.Title)
 	}
 }
 
@@ -29,9 +33,13 @@ func TestUpdateSpectrum(t *testing.T) {
 	for i := range spec {
 		spec[i] = float64(i) / 30.0
 	}
-	m.Update(SpectrumMsg{Spectrum: spec})
-	if m.spectrum[0] != 0 {
-		t.Errorf("expected spectrum[0] 0, got %f", m.spectrum[0])
+	newModel, _ := m.Update(SpectrumMsg{Spectrum: spec})
+	updated, ok := newModel.(model)
+	if !ok {
+		t.Fatalf("expected model type, got %T", newModel)
+	}
+	if updated.spectrum[0] != 0 {
+		t.Errorf("expected spectrum[0] 0, got %f", updated.spectrum[0])
 	}
 }
 
@@ -41,7 +49,7 @@ func TestViewRenders(t *testing.T) {
 	m.width = 100
 	m.height = 20
 	v := m.View()
-	if v == "" {
+	if v.Content == "" {
 		t.Error("expected empty view")
 	}
 }
