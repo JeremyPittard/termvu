@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"time"
 
 	"termvu/musicviz/src/audio"
@@ -72,7 +71,7 @@ func main() {
 		}
 	}()
 
-	if err := p.Start(); err != nil {
+	if _, err := p.Run(); err != nil {
 		log.Fatalf("tea program error: %v", err)
 	}
 }

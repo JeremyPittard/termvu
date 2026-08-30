@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gordonklaus/portaudio"
-	"github.com/mjibson/go-dsp/fft"
+	"github.com/madelynnblue/go-dsp/fft"
 )
 
 // Spectrum represents the amplitude of 30 frequency bands.
@@ -21,7 +21,6 @@ type AudioCapture struct {
 	fftSize      int
 	audioBuffer  []float64
 	window       []float64
-	fftHelper    *fft.FFT
 	stream       *portaudio.Stream
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
@@ -33,6 +32,7 @@ func NewAudioCapture(sampleRate float64, fftSize int) (*AudioCapture, error) {
 		return nil, err
 	}
 
+	// Precompute Hann window.
 	hann := make([]float64, fftSize)
 	for i := range hann {
 		hann[i] = 0.5 * (1 - math.Cos(2*math.Pi*float64(i)/float64(fftSize-1)))
@@ -43,7 +43,6 @@ func NewAudioCapture(sampleRate float64, fftSize int) (*AudioCapture, error) {
 		fftSize:    fftSize,
 		audioBuffer: make([]float64, 0, fftSize),
 		window:     hann,
-		fftHelper:  fft.NewFFT(fftSize),
 	}
 
 	var err error
@@ -77,47 +76,41 @@ func (ac *AudioCapture) audioCallback(in []int32) {
 			windowed[i] *= ac.window[i]
 		}
 
-		// Compute FFT.
-		fftHelper := ac.fftHelper
-		fftHelper.CopyComplex128s(windowed)
-		fftHelper.Transform()
-
-		// Compute magnitude spectrum.
-		mag := make([]float64, ac.fftSize/2+1) // only positive frequencies
-		for i := 0; i <= ac.fftSize/2; i++ {
-			re := fftHelper.OUT[i*2]
-			im := fftHelper.OUT[i*2+1]
-			mag[i] = math.Hypot(re, im)
+		// Compute FFT using FFTReal.
+		complexSpectrum := fft.FFTReal(windowed)
+		// Compute magnitude spectrum for positive frequencies (including Nyquist).
+		mag := make([]float64, ac.fftSize/2+1)
+		for i := 0; i < ac.fftSize/2+1; i++ {
+			c := complexSpectrum[i]
+			mag[i] = math.Hypot(real(c), imag(c))
 		}
 
-		// Convert to dB? We'll just use magnitude.
-		// Split into bands.
-		spectrum := Spectrum{}
+		// Accumulate magnitudes into bands.
 		nyquist := ac.sampleRate / 2
-		bandWidth := nyquist / float64(len(spectrum))
-		for i := range spectrum {
-			low := float64(i) * bandWidth
-			high := float64(i+1) * bandWidth
-			// Sum magnitudes in this band.
-			var sum float64
-			var count int
-			for j, f := float64(0), 0; j < nyquist && f < len(mag); j += ac.sampleRate / float64(ac.fftSize) {
-				if f >= low && f < high {
-					sum += mag[f]
-					count++
-				}
-				f += ac.sampleRate / float64(ac.fftSize)
+		bandWidth := nyquist / float64(len(ac.spectrum)) // frequency width per band
+		var bandSums [30]float64
+		var bandCounts [30]int
+		binWidth := ac.sampleRate / float64(ac.fftSize) // frequency per FFT bin
+		for binIdx, magnitude := range mag {
+			freq := float64(binIdx) * binWidth
+			bandIdx := int(freq / bandWidth)
+			if bandIdx >= len(ac.spectrum) {
+				bandIdx = len(ac.spectrum) - 1
 			}
-			var avg float64
-			if count > 0 {
-				avg = sum / float64(count)
+			bandSums[bandIdx] += magnitude
+			bandCounts[bandIdx]++
+		}
+		// Compute average for each band.
+		for i := range ac.spectrum {
+			if bandCounts[i] > 0 {
+				ac.spectrum[i] = bandSums[i] / float64(bandCounts[i])
+			} else {
+				ac.spectrum[i] = 0
 			}
-			// Normalize by dividing by (fftSize/2) maybe? We'll keep as is for now.
-			spectrum[i] = avg
 		}
 
 		ac.spectrumMu.Lock()
-		ac.spectrum = spectrum
+		// ac.spectrum already updated
 		ac.spectrumMu.Unlock()
 
 		// Remove processed samples.
