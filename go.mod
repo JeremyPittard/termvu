@@ -21,6 +21,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect
+	github.com/moutend/go-wca v0.3.0 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/saltosystems/winrt-go v0.0.0-20260513072510-45f10383b2b8 // indirect

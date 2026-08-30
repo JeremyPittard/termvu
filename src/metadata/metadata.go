@@ -5,27 +5,16 @@ import (
 	"time"
 )
 
-// Metadata holds track information.
+// Metadata holds currently-playing track information.
 type Metadata struct {
-	Title  string
-	Artist string
-	Album  string
+	Title   string
+	Artist  string
+	Album   string
 	Playing bool
 }
 
-// GetMetadata returns the current track metadata from Windows NowPlaying.
-// This is a stub implementation that returns dummy data.
-func GetMetadata() (Metadata, error) {
-	return Metadata{
-		Title:  "Dummy Title",
-		Artist: "Dummy Artist",
-		Album:  "Dummy Album",
-		Playing: true,
-	}, nil
-}
-
-// PollMetadata periodically calls GetMetadata and sends results on the returned channel.
-// It stops when the context is canceled.
+// PollMetadata periodically calls GetMetadata and sends the result on the
+// returned channel. It stops when the context is canceled.
 func PollMetadata(ctx context.Context, interval time.Duration) <-chan Metadata {
 	ch := make(chan Metadata)
 	go func() {
@@ -35,15 +24,21 @@ func PollMetadata(ctx context.Context, interval time.Duration) <-chan Metadata {
 		for {
 			meta, err := GetMetadata()
 			if err != nil {
-				// TODO: handle error
+				// Avoid a hot loop when no session is available; the caller's
+				// interval still throttles work, so just skip this frame.
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+				}
 				continue
 			}
 			select {
 			case <-ctx.Done():
 				return
 			case ch <- meta:
+			case <-ticker.C:
 			}
-			<-ticker.C
 		}
 	}()
 	return ch
