@@ -5,6 +5,7 @@ package metadata
 import (
 	"fmt"
 	"time"
+	"unsafe"
 
 	"github.com/go-ole/go-ole"
 	"github.com/saltosystems/winrt-go/windows/foundation"
@@ -100,11 +101,16 @@ func sessionMediaProperties(session *control.GlobalSystemMediaTransportControlsS
 	}
 	defer op.Release()
 
+	// IAsyncOperation extends IAsyncInfo, but winrt-go does not generate the
+	// inherited methods, so query for IAsyncInfo to poll completion status.
+	info := (*foundation.IAsyncInfo)(unsafe.Pointer(op.MustQueryInterface(ole.NewGUID(foundation.GUIDIAsyncInfo))))
+	defer info.Release()
+
 	// WinRT async operations for SMTC media properties complete quickly, but
 	// we still wait for completion with a bounded poll.
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		switch status, err := op.GetStatus(); {
+		switch status, err := info.GetStatus(); {
 		case err != nil:
 			return nil, fmt.Errorf("async GetStatus: %w", err)
 		case status == foundation.AsyncStatusCompleted:

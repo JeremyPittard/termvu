@@ -45,10 +45,10 @@ func NewAudioCapture(sampleRate float64, fftSize int) (*AudioCapture, error) {
 
 	var enumerator *wca.IMMDeviceEnumerator
 	if err := wca.CoCreateInstance(
-		&wca.CLSID_MMDeviceEnumerator,
+		wca.CLSID_MMDeviceEnumerator,
 		0,
 		wca.CLSCTX_ALL,
-		&wca.IID_IMMDeviceEnumerator,
+		wca.IID_IMMDeviceEnumerator,
 		&enumerator,
 	); err != nil {
 		return nil, fmt.Errorf("create MMDeviceEnumerator: %w", err)
@@ -62,7 +62,7 @@ func NewAudioCapture(sampleRate float64, fftSize int) (*AudioCapture, error) {
 	defer device.Release()
 
 	var audioClient *wca.IAudioClient
-	if err := device.Activate(&wca.IID_IAudioClient, wca.CLSCTX_ALL, nil, &audioClient); err != nil {
+	if err := device.Activate(wca.IID_IAudioClient, wca.CLSCTX_ALL, nil, &audioClient); err != nil {
 		return nil, fmt.Errorf("activate IAudioClient: %w", err)
 	}
 
@@ -92,7 +92,7 @@ func NewAudioCapture(sampleRate float64, fftSize int) (*AudioCapture, error) {
 	}
 
 	var captureClient *wca.IAudioCaptureClient
-	if err := audioClient.GetService(&wca.IID_IAudioCaptureClient, &captureClient); err != nil {
+	if err := audioClient.GetService(wca.IID_IAudioCaptureClient, &captureClient); err != nil {
 		audioClient.Release()
 		return nil, fmt.Errorf("GetService IAudioCaptureClient: %w", err)
 	}
